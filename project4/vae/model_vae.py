@@ -188,7 +188,7 @@ class VAE(object):
             print("Epoch:", '%04d' % (epoch + 1), "cost=", "{}".format(avg_loss))
             if epoch % 10 == 0:
                 images = self.sess.run(self.x_hat, feed_dict={self.x: batch_images})
-                save_images(images, (28, 28), './img/digit{}.png'.format(epoch))
+                save_images(images, (28, 28), './img3/digit{}.png'.format(epoch))
             
     def save(self, checkpoint_dir, step):
         model_name = "mnist.model"

@@ -187,7 +187,7 @@ class FullyConnectedNet(object):
                     self.params["beta{}".format(i + 1)] = np.zeros(dim[i + 1])
 
         else:
-            for i in range(self.num_layers):
+            for i in range(self.num_layers+1):
                 self.params["W{}".format(i + 1)] = np.random.randn(*(dim[i:i+2])) * np.sqrt(2/(dim[i]+dim[i+1]))
                 self.params["b{}".format(i + 1)] = np.zeros(dim[i+1])
                 if use_batchnorm and i < self.num_layers - 1:
@@ -293,8 +293,8 @@ class FullyConnectedNet(object):
 
         else:
             for i in range(self.num_layers - 1):
-                yi, caches = fc_relu_forward(yi, self.params["W{}".format(i + 1)], self.params["b{}".format(i + 1)])
-                cache.append({'fc_cache': caches[0], 'relu_cache': caches[1]})
+                yi, cache = fc_relu_forward(yi, self.params["W{}".format(i + 1)], self.params["b{}".format(i + 1)])
+                cache.append({'fc_cache': cache[0], 'relu_cache': cache[1]})
 
         # Last layer
         scores, fc_cache = fc_forward(yi, self.params["W{}".format(self.num_layers)],
@@ -341,6 +341,7 @@ class FullyConnectedNet(object):
                 # dLdy, grads["W{}".format(i)], grads["b{}".format(i)] = fc_backward(dLdz, cache[i-1]['fc_cache'])
                 dLdy, grads["W{}".format(i)], grads["b{}".format(i)], \
                 grads["gamma{}".format(i)], grads["beta{}".format(i)] = fc_BN_relu_backward(dLdy, cache[i-1])
+
                 grads["W{}".format(i)] += self.reg * self.params["W{}".format(i)]
 
         else:

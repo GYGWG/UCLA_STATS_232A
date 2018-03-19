@@ -12,8 +12,8 @@ from utils import *
 
 class DCGAN(object):
     def __init__(self, sess, input_size=28,
-                 batch_size=100, sample_num=100, output_size=28,
-                 z_dim=100, c_dim=1, dataset_name='default',
+                 batch_size=64, sample_num=64, output_size=28,
+                 z_dim=62, c_dim=1, dataset_name='default',
                  checkpoint_dir=None, sample_dir=None):
         """
 
@@ -38,12 +38,9 @@ class DCGAN(object):
         self.dataset_name = dataset_name
         self.checkpoint_dir = checkpoint_dir
 
-        self.build_model()
+        self.counter = 1
 
-        self.d1_shape = None
-        self.d2_shape = None
-        self.d2_flat_shape = None
-        self.d3_shape = None
+        self.build_model()
 
     def discriminator(self, image, reuse=False, train=True):
         with tf.variable_scope("discriminator", reuse=reuse):
@@ -53,14 +50,16 @@ class DCGAN(object):
             # Please use batch normalization layer after conv layer.
             # And use 'train' argument to indicate the mode of bn.
             #######################################################
-            d = lrelu(conv2d(image, 16, name="d_conv1"), name="d1_lrelu")
-            self.d1_shape = d.shape
-            d = lrelu(batch_norm(conv2d(d, 32, name="d_conv2"), train=train, name="d2_bn"), name="d2_lrelu")
-            self.d2_shape = d.shape
+            d = lrelu(conv2d(image, 32, 4, 4, 2, 2, name="d_conv1"), name="d_lrelu1")
+            # self.d1_shape = d.shape
+            d = lrelu(batch_norm(conv2d(d, 64, 4, 4, 2, 2, name="d_conv2"), train=train, name="d_bn2"), name="d_lrelu2")
+            # self.d2_shape = d.shape
+            d = lrelu(batch_norm(conv2d(d, 256, 4, 4, 2, 2, name="d_conv2_1"), train=train, name="d_2_1_bn"),
+                      name="d_2_1_lrelu")
             d = tf.reshape(d, [self.batch_size, -1])
-            self.d2_flat_shape = d.shape
-            d = lrelu(batch_norm(linear(d, 512, 'd_conv3'), train=train, name="d3_bn"), name="d3_lrelu")
-            self.d3_shape = d.shape
+            # self.d2_flat_shape = d.shape
+            d = lrelu(batch_norm(linear(d, 512, 'd_conv3'), train=train, name="d_bn3"), name="d_lrelu3")
+            # self.d3_shape = d.shape
             out_logit = linear(d, 1, "d_fc4")
             out = tf.nn.sigmoid(out_logit)
 
@@ -81,11 +80,12 @@ class DCGAN(object):
             # the mode of bn layer. Note that when sampling images
             # using trained model, you need to set train='False'.
             #######################################################
-            g = tf.nn.relu(batch_norm(linear(z, self.d3_shape[1], "g_fc1"), train=train, name="g1_bn"))
-            g = tf.nn.relu(batch_norm(linear(g, self.d2_flat_shape[1], "g_fc2"), train=train, name="g2_bn"))
-            g = tf.reshape(g, self.d2_shape)
-            g = tf.nn.relu(batch_norm(deconv2d(g, self.d1_shape, name="g_deconv3"), train=train, name="g3_bn"))
-            g = tf.nn.sigmoid(deconv2d(g, [self.batch_size, self.output_size, self.output_size, 1], name="g_deconv4"))
+            g = tf.nn.relu(batch_norm(linear(z, 1024, "g_fc1"), train=train, name="g_bn1"))
+            g = tf.nn.relu(batch_norm(linear(g, 128*7*7, "g_fc2"), train=train, name="g_bn2"))
+            g = tf.reshape(g, [self.batch_size, 7, 7, 128])
+            g = tf.nn.relu(batch_norm(deconv2d(g, [self.batch_size, 14, 14, 64], 4, 4, 2, 2, name="g_deconv3"),
+                                      train=train, name="g_bn3"))
+            g = tf.nn.sigmoid(deconv2d(g, [self.batch_size, 28, 28, 1], 4, 4, 2, 2, name="g_deconv4"))
 
             return g
             #######################################################
@@ -109,26 +109,29 @@ class DCGAN(object):
                                 name='real_images')
         self.z = tf.placeholder(tf.float32, shape=[self.batch_size, self.z_dim], name='z')
 
+        # Gaussian White noise for training
+        g_noise = tf.random_normal(shape=self.x.shape, mean=0, stddev= 1 / (self.counter**0.5))
+
         # Real data with Discriminator
-        D_real, D_real_logits = self.discriminator(self.x)
+        D_real, D_real_logits = self.discriminator(self.x + g_noise, train=True, reuse=False) #
 
         # Fake data from Generator with Discriminator
-        G = self.generator(self.z)
-        D_fake, D_fake_logits = self.discriminator(G, reuse=True)
+        G = self.generator(self.z, train=True, reuse=False)
+        D_fake, D_fake_logits = self.discriminator(G, train=True, reuse=True)
 
         # Loss of Discriminator
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real_logits,
-                                                                             labels=tf.ones_like(D_real) * 0.9))
+                                                                             labels=tf.ones_like(D_real) * 0.7))
         d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_fake_logits,
-                                                                             labels=tf.zeros_like(D_fake) * 0.9))
+                                                                             labels=tf.zeros_like(D_fake)))
         self.d_loss = d_loss_real + d_loss_fake
 
         # Loss of Generator
         self.g_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_fake_logits,
-                                                                             labels=tf.ones_like(D_fake) * 0.9))
+                                                                             labels=tf.ones_like(D_fake)))
 
         # Test
-        self.x_fake = self.generator(self.z, train=False, reuse=True)
+        self.x_fake = self.generator(self.z, reuse=True, train=False)
 
         #######################################################
         #                   end of your code
@@ -144,9 +147,10 @@ class DCGAN(object):
     def train(self, config):
         # create two optimizers for generator and discriminator,
         # and only update the corresponding variables.
-        d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+        self.sample_z = np.random.uniform(-1, 1, size=(self.batch_size, self.z_dim))
+        d_optim = tf.train.AdamOptimizer(config.learning_rate / 5, beta1=config.beta1) \
             .minimize(self.d_loss, var_list=self.d_vars)
-        g_optim = tf.train.AdamOptimizer(config.learning_rate * 5, beta1=config.beta1) \
+        g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
             .minimize(self.g_loss, var_list=self.g_vars)
         try:
             self.sess.run(tf.global_variables_initializer())
@@ -161,10 +165,9 @@ class DCGAN(object):
         data = np.reshape(data, [-1, 28, 28, 1])
         data = data * 2.0 - 1.0
 
-        counter = 1
         could_load, checkpoint_counter = self.load(self.checkpoint_dir)
         if could_load:
-            counter = checkpoint_counter
+            self.counter = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
@@ -183,12 +186,12 @@ class DCGAN(object):
                 # config.print_step steps.You may use function
                 # save_images in utils.py to save images.
                 #######################################################
-                batch_z = np.random.uniform(-1, 1, size=(self.batch_size, self.z_dim))
+                batch_z = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
 
                 _, d_loss = self.sess.run([d_optim, self.d_loss], feed_dict={self.x: batch_images, self.z: batch_z})
                 _, g_loss = self.sess.run([g_optim, self.g_loss], feed_dict={self.x: batch_images, self.z: batch_z})
 
-                if np.mod(counter, 10) == 1:
+                if np.mod(self.counter, 10) == 1:
                     print("Epoch: [%2d] [%4d/%4d], d_loss: %.8f, g_loss: %.8f" % (epoch, idx, batch_idxs, d_loss,
                                                                                   g_loss))
 
@@ -196,12 +199,12 @@ class DCGAN(object):
                 #                   end of your code
                 #######################################################
 
-                counter += 1
-                if np.mod(counter, 500) == 1:
-                    self.save(config.checkpoint_dir, counter)
+                self.counter += 1
+                if np.mod(self.counter, 500) == 1:
+                    self.save(config.checkpoint_dir, self.counter)
 
-                if np.mod(counter, 100) == 0:
-                    samples = self.sess.run(self.x_fake, feed_dict={self.z: batch_z})
+                if np.mod(self.counter, 100) == 0:
+                    samples = self.sess.run(self.x_fake, feed_dict={self.z: self.sample_z})
                     save_images(samples, image_manifold_size(samples.shape[0]),
                                 './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx + 1))
 
@@ -232,9 +235,9 @@ class DCGAN(object):
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-            counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
+            self.counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
             print(" [*] Success to read {}".format(ckpt_name))
-            return True, counter
+            return True, self.counter
         else:
             print(" [*] Failed to find a checkpoint")
             return False, 0
