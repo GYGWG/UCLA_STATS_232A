@@ -14,8 +14,11 @@ flags.DEFINE_integer('image_size', 64, 'image size of training images')
 flags.DEFINE_float('learning_rate', 0.1, 'Learning rate')
 flags.DEFINE_float('beta1', 0.5, 'Momentum')
 
+flags.DEFINE_integer('log_steps', 50, 'Update the log data every 50 global steps')
+
 # hyper parameters for Langevin dynamics, no need to change
 flags.DEFINE_integer('T', 30, 'Number of Langevin iterations,')
+flags.DEFINE_integer('N', 10, 'Number of times of the batch size,')
 flags.DEFINE_float('delta', 0.3, 'Langevin step size')
 flags.DEFINE_float('ref_sig', 50, 'Standard deviation for reference gaussian distribution')
 

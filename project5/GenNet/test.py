@@ -1,5 +1,7 @@
 import tensorflow as tf
 import collections
+import numpy as np
+from collections import deque
 
 sess = tf.Session()
 
@@ -17,12 +19,6 @@ ijk_final = tf.while_loop(c, b, ijk_0)
 print sess.run(ijk_final)
 
 
-z1 = tf.placeholder(shape=[2], dtype=tf.float32)
-z2 = z1
-z2 = z2 + tf.random_normal(z2.shape)
-
-print sess.run([z1, z2], feed_dict={z1: [1, 1]})
-
 
 class test:
     def __init__(self):
@@ -31,7 +27,9 @@ class test:
 
     def while_loop(self):
         def body(i, z):
-            return [i+1, z+2]
+            i += 1
+            z += 2
+            return (i, z)
 
         def cond(i, z):
             return i < self.b
@@ -41,7 +39,22 @@ class test:
 tt = test()
 print sess.run(tt.while_loop())
 
-a = tf.ones(shape=[2,3,4,5])
-b = tf.norm(a, axis=[1,2,3])
-print sess.run(b)
+a = np.ones((11,4))
+b = np.zeros((4,4))
+c = np.row_stack((a,b))
+print c
 
+dq = deque(maxlen=5)
+for i in xrange(9):
+    dq.append(i)
+
+print dq
+print dq[3]
+
+def test(d):
+    i = np.random.randint(0, 4)
+    return d[i]
+
+tt = tf.range(1,10)
+for i in xrange(3):
+    print(sess.run(test(tt)))

@@ -6,6 +6,7 @@ import os
 import tensorflow as tf
 from PIL import Image
 import scipy.misc
+import skimage
 
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm']
 

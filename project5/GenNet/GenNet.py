@@ -4,6 +4,7 @@ import os
 import math
 import numpy as np
 import tensorflow as tf
+from collections import deque
 
 from ops import *
 from datasets import *
@@ -40,7 +41,7 @@ class GenNet(object):
             os.makedirs(self.sample_dir)
 
         self.obs = tf.placeholder(shape=[self.batch_size, self.image_size, self.image_size, 3], dtype=tf.float32)
-        self.z = tf.placeholder(shape=[self.batch_size, self.z_dim], dtype=tf.float32)
+        self.z = tf.placeholder(shape=[None, self.z_dim], dtype=tf.float32)
         self.cur_z = self.z
         self.loss = None
 
@@ -74,12 +75,12 @@ class GenNet(object):
         # The return should be the updated z.
         ####################################################
         def body(i, z):
-            y_hat = self.generator(z, reuse=True, is_training=False)
+            y_hat = self.generator(z, reuse=True, is_training=True)
             BM = tf.random_normal(shape=z.shape)
             L = - 0.5 / self.delta ** 2 * tf.square(tf.norm((self.obs - y_hat)))
             gradient = tf.gradients(L, z)[0]
             z = z + self.delta * BM + 0.5 * self.delta ** 2 * (gradient - z)
-            return [i+1, z]
+            return (i+1, z)
 
         def cond(i, z):
             return i < self.sample_steps
@@ -90,7 +91,7 @@ class GenNet(object):
         gradient_0 = tf.gradients(L_0, z)[0]
         z = z + self.delta * BM_0 + 0.5 * self.delta ** 2 * (gradient_0 - z)
 
-        return tf.while_loop(cond, body, [tf.constant(1), z])[1]
+        return tf.while_loop(cond, body, loop_vars=[tf.constant(1), z])[1]
 
 
     def build_model(self):
@@ -99,11 +100,14 @@ class GenNet(object):
         ####################################################
         self.cur_z = self.langevin_dynamics(self.cur_z)
 
-        y_hat = self.generator(self.cur_z, reuse=True, is_training=False)
-        self.loss = 0.5 / self.delta**2 * tf.reduce_mean(tf.square(tf.norm((self.obs - y_hat), axis=1)))
+        y_hat = self.generator(self.cur_z, reuse=True, is_training=True)
+        self.res = tf.reshape(self.obs - y_hat, shape=[self.batch_size, -1])
+        self.loss = 0.5 / self.delta**2 * tf.reduce_mean(tf.square(tf.norm(self.res, axis=1)))
+        self.loss_sum = tf.summary.scalar("loss", self.loss)
 
         # Test
         self.genImage = self.generator(self.z, reuse=True, is_training=False)
+        # self.interpImage = self.generator(self.z, reuse=True, is_training=False)
         self.saver = tf.train.Saver(max_to_keep=50)
 
 
@@ -142,20 +146,41 @@ class GenNet(object):
         # self.sample_dir, loss in self.log_dir (using writer).
         ####################################################
 
+        cur_z = np.random.randn(self.batch_size, self.z_dim)
+
+        # Q1
         for epoch in xrange(self.num_epochs):
-            init_z = np.random.randn(self.batch_size, self.z_dim)
-
-            _, loss, cur_z = self.sess.run([optim, self.loss, self.cur_z], feed_dict={self.obs: train_data,
-                                                                                   self.z: init_z})
-            print(loss)
-
+            z = cur_z
             if np.mod(counter, self.log_step) == 0:
                 self.save(counter)
-                # writer.add_summary(loss, counter)
-                samples = self.sess.run(self.genImage, feed_dict={self.z: cur_z})
-                save_images(samples, './{}/train_{:04d}.png'.format(self.sample_dir, counter))
+                _, loss, loss_sum, cur_z, samples = \
+                    self.sess.run([optim, self.loss, self.loss_sum, self.cur_z, self.genImage],
+                                  feed_dict={self.obs: train_data, self.z: z})
 
+                save_images(samples, './{}/train_{:04d}.png'.format(self.sample_dir, counter))
+                writer.add_summary(loss_sum, counter)
+
+            else:
+                _, loss, cur_z = self.sess.run([optim, self.loss, self.cur_z],
+                                               feed_dict={self.obs: train_data, self.z: z})
+
+            print("loss = {}".format(loss))
             counter += 1
+
+        # Q2
+        rand_sampled_z = np.random.randn(self.batch_size, self.z_dim)
+        randImages = self.sess.run(self.genImage, feed_dict={self.obs: train_data, self.z: rand_sampled_z})
+        save_images(randImages, './{}/rand_sample_{:04d}.png'.format(self.sample_dir, counter))
+
+        # Q3
+        coord = np.linspace(-2,2,11)
+        x, y = np.meshgrid(coord, coord)
+        x, y = x.reshape(-1,), y.reshape(-1,)
+        interp_z = np.column_stack((x, y))
+        interpImages = np.zeros((121,64,64,3))
+        for i in xrange(11):
+            interpImages[i*11:(i+1)*11] = self.sess.run(self.genImage, feed_dict={self.obs: train_data, self.z: interp_z[i*11 : (i+1)*11]})
+        save_images(interpImages, './{}/interpolated_sample_{:04d}.png'.format(self.sample_dir, counter))
 
 
     def save(self, step):
