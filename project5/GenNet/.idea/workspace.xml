@@ -26,8 +26,8 @@
       <file leaf-file-name="GenNet.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/GenNet.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="205">
-              <caret line="106" column="0" lean-forward="true" selection-start-line="106" selection-start-column="0" selection-end-line="106" selection-end-column="0" />
+            <state relative-caret-position="313">
+              <caret line="112" column="0" lean-forward="true" selection-start-line="112" selection-start-column="0" selection-end-line="112" selection-end-column="0" />
               <folding>
                 <element signature="e#0#31#0" expanded="true" />
               </folding>
@@ -126,8 +126,8 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="61" />
-    <option name="y" value="304" />
+    <option name="x" value="65" />
+    <option name="y" value="24" />
     <option name="width" value="1215" />
     <option name="height" value="776" />
   </component>
@@ -222,7 +222,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="61" y="304" width="1215" height="776" extended-state="0" />
+    <frame x="65" y="24" width="1215" height="776" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.16408668" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -542,8 +542,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/GenNet.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="205">
-          <caret line="106" column="0" lean-forward="true" selection-start-line="106" selection-start-column="0" selection-end-line="106" selection-end-column="0" />
+        <state relative-caret-position="313">
+          <caret line="112" column="0" lean-forward="true" selection-start-line="112" selection-start-column="0" selection-end-line="112" selection-end-column="0" />
           <folding>
             <element signature="e#0#31#0" expanded="true" />
           </folding>
