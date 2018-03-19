@@ -28,8 +28,8 @@ class DesNet(object):
         if not os.path.exists(self.sample_dir):
             os.makedirs(self.sample_dir)
 
-        self.img = tf.placeholder(shape=(None, self.imgSize, self.imgSize, 3), dtype=tf.float32)
-        self.meanImg = tf.placeholder(shape=(None, self.imgSize, self.imgSize, 3), dtype=tf.float32)
+        self.img = tf.placeholder(shape=(self.batch_size, self.imgSize, self.imgSize, 3), dtype=tf.float32)
+        self.meanImg = tf.placeholder(shape=(self.batch_size, self.imgSize, self.imgSize, 3), dtype=tf.float32)
 
         self.build_model(flags)
 
@@ -57,28 +57,15 @@ class DesNet(object):
         # tf.while_loop to define a loop on computation graph.
         # The return should be the updated samples.
         ####################################################
-        def body_inner(i, img):
+        def body(i, img):
             E = 0.5 / flags.ref_sig**2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
-            img = img - 0.5 * flags.delta**2 * tf.gradients(E, img) + tf.random_normal(shape=img.shape)
+            img = img - 0.5 * flags.delta**2 * tf.gradients(E, img)[0] + tf.random_normal(shape=img.shape)
             return i + 1, img
 
-        def cond_inner(i, img):
+        def cond(i, img):
             return i < flags.T
 
-        def body_outer(i, c):
-            s = tf.while_loop(cond_inner, body_inner, loop_vars=[tf.constant(1), samples])[1]
-            c = tf.concat((c, s), axis=0)
-            return i + 1, c
-
-        def cond_outer(i, c):
-            return i < flags.n
-
-        ind = tf.constant(1)
-        collection = tf.while_loop(cond_inner, body_inner, loop_vars=(ind, samples))[1]
-        return tf.while_loop(cond_outer, body_outer, loop_vars=(ind, collection),
-                             shape_invariants=(ind.shape,
-                                               tf.TensorShape([None, flags.image_size, flags.image_size, 3])))[1]
-
+        return tf.while_loop(cond, body, loop_vars=(tf.constant(1), samples))[1]
 
     def build_model(self, flags):
         ####################################################
@@ -86,18 +73,19 @@ class DesNet(object):
         ####################################################
         # Real Data
         img_scoreFun = self.descriptor(self.img, reuse=False, is_training=True)
-        img = self.img.reshape(self.batch_size, -1)
-        E_img = 0.5 / flags.ref_sig**2 * tf.norm(img, axis=1) - img_scoreFun
+        img = tf.reshape(self.img, (self.batch_size, -1))
+        norm = tf.norm(img, axis=1)
+        E_img = 0.5 / flags.ref_sig**2 * tf.square(tf.reshape(norm, (-1, 1))) - img_scoreFun
 
         # Dream data
-        self.synImg = self.Langevin_sampling(self.meanImg, flags)
-        synImg_scoreFun = self.descriptor(self.synImg, reuse=True, is_training=True)
-        synImg = self.synImg.reshape(self.batch_size * flags.n, -1)
-        E_synImg = 0.5 / flags.ref_sig**2 * tf.norm(synImg, axis=1) - synImg_scoreFun
+        E_synImg = self.dreamingData(self.meanImg, flags)
 
         # loss
         self.loss = tf.reduce_mean(E_synImg) - tf.reduce_mean(E_img)
         self.loss_sum = tf.summary.scalar("loss", self.loss)
+
+        # test
+        self.synImg = self.Langevin_sampling(self.meanImg, flags)
 
         self.saver = tf.train.Saver(max_to_keep=50)
 
@@ -108,6 +96,7 @@ class DesNet(object):
         train_data = train_data.to_range(0, 255)
         data_mean = np.mean(train_data, axis=(1,2,3),keepdims=True)
         train_meanData = np.ones_like(train_data) * data_mean
+
         optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
 
         self.sess.run(tf.global_variables_initializer())
@@ -156,13 +145,24 @@ class DesNet(object):
         print(" Finished training ...")
 
 
+    def dreamingData(self, meanImg, flags):
+        def body(i, E_collection):
+            synImg = self.Langevin_sampling(meanImg, flags)
+            synImg_scoreFun = self.descriptor(synImg, reuse=True, is_training=True)
+            synImg = tf.reshape(synImg, (self.batch_size, -1))
+            norm = tf.norm(synImg, axis=1)
+            E_synImg = 0.5 / flags.ref_sig ** 2 * tf.square(tf.reshape(norm, (-1, 1))) - synImg_scoreFun
+            E_collection = tf.concat((E_collection, E_synImg), axis=0)
+            return i+1, E_collection
 
+        def cond(i, E_collection):
+            return i < flags.n
 
-
-
-
-
-
+        E_collection = tf.constant(0.0, shape=(1,1))
+        ind = tf.constant(1)
+        return tf.while_loop(cond, body, loop_vars=(ind, E_collection),
+                             shape_invariants=(ind.shape,
+                                               tf.TensorShape([None, 1])))[1][1:]
 
 
     def save(self, step):
