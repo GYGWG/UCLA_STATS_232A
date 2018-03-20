@@ -4,6 +4,7 @@ from glob import glob
 import time
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 from ops import *
 from datasets import *
 
@@ -43,11 +44,10 @@ class DesNet(object):
             # fc: channel output 1
             # conv1 - bn - relu - conv2 - bn - relu -fc
             ####################################################
-            net = lrelu(conv2d(inputs, 64, 4, 4, 2, 2, name='en_conv1'))
-            net = lrelu(bn(conv2d(net, 128, 2, 2, 1, 1, name='en_conv2'), train=is_training, name='en_bn2'))
+            net = lrelu(bn(conv2d(inputs, 32, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
+            net = lrelu(bn(conv2d(net, 64, 2, 2, 1, 1, name='d_conv2'), train=is_training, name='d_bn2'))
             net = tf.reshape(net, [self.batch_size, -1])
-            return linear(net, 1, 'en_fc3')
-            # gaussian_params = linear(net, 1, scope='en_fc4')
+            return linear(net, 1, 'd_fc3')
 
 
     def Langevin_sampling(self, samples, flags):
@@ -81,7 +81,7 @@ class DesNet(object):
         E_synImg = self.dreamingData(self.meanImg, flags)
 
         # loss
-        self.loss = tf.reduce_mean(E_synImg) - tf.reduce_mean(E_img)
+        self.loss = tf.reduce_mean(E_img) - tf.reduce_mean(E_synImg)
         self.loss_sum = tf.summary.scalar("loss", self.loss)
 
         # test
@@ -97,14 +97,18 @@ class DesNet(object):
         data_mean = np.mean(train_data, axis=(1,2,3),keepdims=True)
         train_meanData = np.ones_like(train_data) * data_mean
 
-        optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
+        # Exp-decay learning rate
+        counter = 0
+        # global_steps = tf.Variable(0, trainable=False)
+        # learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 1000, 0.96, staircase=True)
+
+        optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)    # , global_step=global_steps
 
         self.sess.run(tf.global_variables_initializer())
         self.sess.run(tf.local_variables_initializer())
 
         summary_op = tf.summary.merge_all()
         self.writer = tf.summary.FileWriter(self.log_dir, self.sess.graph)
-        counter = 1
         could_load, checkpoint_counter = self.load()
         if could_load:
             counter = checkpoint_counter
@@ -116,6 +120,7 @@ class DesNet(object):
 
         print(" Start training ...")
 
+
         ####################################################
         # Train the model here. Print the loss term at each
         # epoch to monitor the training process. You may use
@@ -124,7 +129,7 @@ class DesNet(object):
         # synthesized images in self.sample_dir,
         # loss in self.log_dir (using writer).
         ####################################################
-
+        loss_record = []
         for epoch in xrange(flags.epoch):
             if np.mod(counter, flags.log_steps) == 0:
                 _, loss, loss_sum, synImg = \
@@ -133,16 +138,20 @@ class DesNet(object):
 
                 save_images(synImg, './{}/train_{:04d}.png'.format(self.sample_dir, counter))
                 self.writer.add_summary(loss_sum, counter)
+                self.save(counter)
 
             else:
                 _, loss, loss_sum = \
                     self.sess.run([optim, self.loss, self.loss_sum],
                                   feed_dict={self.img: train_data, self.meanImg: train_meanData})
 
+            loss_record.append(loss)
             print("loss = {}".format(loss))
             counter += 1
 
         print(" Finished training ...")
+        plt.plot(loss_record)
+        plt.show()
 
 
     def dreamingData(self, meanImg, flags):

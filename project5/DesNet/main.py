@@ -9,16 +9,16 @@ flags.DEFINE_string('output_dir', 'egret', 'pattern of filename of input images 
 
 # hyper parameters for learning process
 flags.DEFINE_integer('batch_size', 7, 'Batch size for training')
-flags.DEFINE_integer('epoch', 1000, 'Number of epoch for training')
+flags.DEFINE_integer('epoch', 2000, 'Number of epoch for training')
 flags.DEFINE_integer('image_size', 64, 'image size of training images')
-flags.DEFINE_float('learning_rate', 0.1, 'Learning rate')
+flags.DEFINE_float('learning_rate', 0.04, 'Learning rate')
 flags.DEFINE_float('beta1', 0.5, 'Momentum')
 
-flags.DEFINE_integer('log_steps', 50, 'Update the log data every 50 global steps')
+flags.DEFINE_integer('log_steps', 25, 'Update the log data every 50 global steps')
 
 # hyper parameters for Langevin dynamics, no need to change
 flags.DEFINE_integer('T', 30, 'Number of Langevin iterations,')
-flags.DEFINE_integer('n', 10, 'Number of times of the batch size,')
+flags.DEFINE_integer('n', 2, 'Number of times of the batch size,')
 flags.DEFINE_float('delta', 0.3, 'Langevin step size')
 flags.DEFINE_float('ref_sig', 50, 'Standard deviation for reference gaussian distribution')
 
