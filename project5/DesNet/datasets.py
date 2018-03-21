@@ -6,7 +6,6 @@ import os
 import tensorflow as tf
 from PIL import Image
 import scipy.misc
-import skimage
 
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm']
 
@@ -65,5 +64,5 @@ def merge_images(images, space=0, mean_img=None):
 
 
 def save_images(images, file_name, space=0, mean_img=None):
-    skimage.io.imsave(file_name, merge_images(images, space, mean_img))
+    scipy.misc.imsave(file_name, merge_images(images, space, mean_img))
 

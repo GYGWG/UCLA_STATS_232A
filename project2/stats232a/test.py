@@ -695,9 +695,9 @@ class Test(object):
 
         # Training
         weight_scale = 0
-        learning_rate = 1e-3
+        learning_rate = 5e-4
         model = FullyConnectedNet([200, 200, 200, 200, 200], input_dim=3 * 32 * 32, reg=0.1,
-                weight_scale=weight_scale, use_batchnorm=True, dtype=np.float64)
+                weight_scale=weight_scale, dtype=np.float64)
 
         solver = Solver(model, data,
                 print_every=50, num_epochs=20, batch_size=256,
