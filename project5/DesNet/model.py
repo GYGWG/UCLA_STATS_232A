@@ -94,15 +94,18 @@ class DesNet(object):
         # Prepare training data, scale is [0, 255]
         train_data = DataSet(self.data_path, image_size=flags.image_size)
         train_data = train_data.to_range(0, 255)
-        data_mean = np.mean(train_data, axis=(1,2,3),keepdims=True)
+        # data_mean = np.mean(train_data, axis=(1,2,3),keepdims=True)
+        data_mean = np.mean(train_data, axis=(1, 2), keepdims=True)
+
         train_meanData = np.ones_like(train_data) * data_mean
 
         # Exp-decay learning rate
         counter = 0
-        # global_steps = tf.Variable(0, trainable=False)
-        # learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 1000, 0.96, staircase=True)
+        global_steps = tf.Variable(0, trainable=False)
+        learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 100, 0.96, staircase=True)
 
-        optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)    # , global_step=global_steps
+        # optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
+        optim = tf.train.AdamOptimizer(learning_rate, beta1=flags.beta1).minimize(self.loss, global_step=global_steps)
 
         self.sess.run(tf.global_variables_initializer())
         self.sess.run(tf.local_variables_initializer())

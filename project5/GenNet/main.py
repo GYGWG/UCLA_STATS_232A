@@ -15,7 +15,7 @@ def main():
     # training hyper-parameters, no need to change
     parser.add_argument('--num_epochs', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=11)
-    parser.add_argument('--g_lr', type=float, default=0.00051)  # learning rate
+    parser.add_argument('--g_lr', type=float, default=0.1)  # learning rate
     parser.add_argument('--beta1', type=float, default=0.5)  # momentum1 in Adam
     parser.add_argument('--sigma', type=float, default=0.3)
 
@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--output_dir', type=str, default='./output')
     parser.add_argument('--category', type=str, default='lion_tiger')
     parser.add_argument('--data_path', type=str, default='./Image/')
-    parser.add_argument('--log_step', type=int, default=50)
+    parser.add_argument('--log_step', type=int, default=25)
 
     opt = parser.parse_args()
 
