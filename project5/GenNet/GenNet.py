@@ -5,6 +5,7 @@ import math
 import numpy as np
 import tensorflow as tf
 from collections import deque
+import matplotlib.pyplot as plt
 
 from ops import *
 from datasets import *
@@ -55,11 +56,14 @@ class GenNet(object):
         ####################################################
         with tf.variable_scope("generator", reuse=reuse):
             net = tf.nn.relu(bn(linear(inputs, 1024, scope='g_fc1'), train=is_training, name='g_bn1'))
-            net = tf.nn.relu(bn(linear(net, 128 * 16 * 16, scope='g_fc2'), train=is_training, name='g_bn2'))
-            net = tf.reshape(net, [self.batch_size, 16, 16, 128])
+            net = tf.nn.relu(bn(linear(net, 128 * 8 * 8, scope='g_fc2'), train=is_training, name='g_bn2'))
+            net = tf.reshape(net, [self.batch_size, 8, 8, 128])
             net = tf.nn.relu(
-                bn(deconv2d(net, [self.batch_size, 32, 32, 64], 4, 4, 2, 2, name='g_dc3'), train=is_training,
+                bn(deconv2d(net, [self.batch_size, 16, 16, 64], 4, 4, 2, 2, name='g_dc3'), train=is_training,
                    name='g_bn3'))
+            net = tf.nn.relu(
+                bn(deconv2d(net, [self.batch_size, 32, 32, 32], 4, 4, 2, 2, name='g_dc3-2'), train=is_training,
+                   name='g_bn3-2'))
 
             out = tf.nn.sigmoid(deconv2d(net, [self.batch_size, self.image_size, self.image_size, 3], 4, 4, 2, 2,
                                          name='g_dc4'))
@@ -76,8 +80,9 @@ class GenNet(object):
         ####################################################
         def body(i, z):
             y_hat = self.generator(z, reuse=True, is_training=True)
-            BM = tf.random_normal(shape=z.shape)
-            L = - 0.5 / self.delta ** 2 * tf.square(tf.norm((self.obs - y_hat)))
+            BM = tf.random_normal(shape=tf.shape(z))
+            # L = - 0.5 / self.delta ** 2 * tf.square(tf.norm((self.obs - y_hat)))
+            L = - tf.reduce_mean(0.5 / self.delta ** 2 * tf.square(self.obs - y_hat), axis=0)
             gradient = tf.gradients(L, z)[0]
             z = z + self.delta * BM + 0.5 * self.delta ** 2 * (gradient - z)
             return (i+1, z)
@@ -85,29 +90,30 @@ class GenNet(object):
         def cond(i, z):
             return i < self.sample_steps
 
-        y_hat_0 = self.generator(z, reuse=False, is_training=True)
-        BM_0 = tf.random_normal(shape=[self.batch_size, self.z_dim])
-        L_0 = - 0.5 / self.delta**2 * tf.square(tf.norm((self.obs - y_hat_0)))
-        gradient_0 = tf.gradients(L_0, z)[0]
-        z = z + self.delta * BM_0 + 0.5 * self.delta ** 2 * (gradient_0 - z)
+        # y_hat_0 = self.generator(z, reuse=False, is_training=True)
+        # BM_0 = tf.random_normal(shape=[self.batch_size, self.z_dim])
+        # L_0 = - 0.5 / self.delta**2 * tf.square(tf.norm((self.obs - y_hat_0)))
+        # gradient_0 = tf.gradients(L_0, z)[0]
+        # z = z + self.delta * BM_0 + 0.5 * self.delta ** 2 * (gradient_0 - z)
 
-        return tf.while_loop(cond, body, loop_vars=[tf.constant(1), z])[1]
+        return tf.while_loop(cond, body, loop_vars=[tf.constant(0), z])[1]
 
 
     def build_model(self):
         ####################################################
         # Define the learning process. Record the loss.
         ####################################################
-        self.cur_z = self.langevin_dynamics(self.cur_z)
+        y_hat = self.generator(self.z)
+        # self.res = tf.reshape(self.obs - y_hat, shape=[self.batch_size, -1])
+        # self.loss = 0.5 / self.delta**2 * tf.reduce_mean(tf.square(tf.norm(self.res, axis=1)))
+        self.loss = 0.5 / self.delta**2 * tf.reduce_mean(tf.square(self.obs - y_hat), axis=0)
+        self.loss_mean = tf.reduce_mean(self.loss)
+        self.loss_sum = tf.summary.scalar("loss", self.loss_mean)
 
-        y_hat = self.generator(self.cur_z, reuse=True, is_training=True)
-        self.res = tf.reshape(self.obs - y_hat, shape=[self.batch_size, -1])
-        self.loss = 0.5 / self.delta**2 * tf.reduce_mean(tf.square(tf.norm(self.res, axis=1)))
-        self.loss_sum = tf.summary.scalar("loss", self.loss)
+        self.cur_z = self.langevin_dynamics(self.z)
 
         # Test
         self.genImage = self.generator(self.z, reuse=True, is_training=False)
-        # self.interpImage = self.generator(self.z, reuse=True, is_training=False)
         self.saver = tf.train.Saver(max_to_keep=50)
 
 
@@ -117,7 +123,11 @@ class GenNet(object):
         train_data = train_data.to_range(-1, 1)
 
         # Training
-        optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1).minimize(self.loss)
+        global_steps = tf.Variable(0, trainable=False)
+        learning_rate = tf.train.exponential_decay(self.g_lr, global_steps, 100, 0.96, staircase=True)
+        optim = tf.train.AdamOptimizer(learning_rate, beta1=self.beta1).minimize(self.loss, global_step=global_steps)
+
+        # optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1).minimize(self.loss)
         num_batches = int(math.ceil(len(train_data) / self.batch_size))
         summary_op = tf.summary.merge_all()
 
@@ -149,23 +159,29 @@ class GenNet(object):
         cur_z = np.random.randn(self.batch_size, self.z_dim)
 
         # Q1
+        loss_record = []
         for epoch in xrange(self.num_epochs):
             z = cur_z
             if np.mod(counter, self.log_step) == 0:
                 self.save(counter)
                 _, loss, loss_sum, cur_z, samples = \
-                    self.sess.run([optim, self.loss, self.loss_sum, self.cur_z, self.genImage],
+                    self.sess.run([optim, self.loss_mean, self.loss_sum, self.cur_z, self.genImage],
                                   feed_dict={self.obs: train_data, self.z: z})
 
                 save_images(samples, './{}/train_{:04d}.png'.format(self.sample_dir, counter))
                 writer.add_summary(loss_sum, counter)
 
             else:
-                _, loss, cur_z = self.sess.run([optim, self.loss, self.cur_z],
+                _, loss, cur_z = self.sess.run([optim, self.loss_mean, self.cur_z],
                                                feed_dict={self.obs: train_data, self.z: z})
 
+            loss_record.append(loss)
             print("loss = {}".format(loss))
             counter += 1
+
+        print(" Finished training ...")
+        plt.plot(loss_record)
+        plt.show()
 
         # Q2
         rand_sampled_z = np.random.randn(self.batch_size, self.z_dim)

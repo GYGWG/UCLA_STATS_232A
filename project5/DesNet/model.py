@@ -58,7 +58,8 @@ class DesNet(object):
         # The return should be the updated samples.
         ####################################################
         def body(i, img):
-            E = 0.5 / flags.ref_sig**2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
+            # E = 0.5 / flags.ref_sig**2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
+            E = 0.5 / flags.ref_sig ** 2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
             img = img - 0.5 * flags.delta**2 * tf.gradients(E, img)[0] + tf.random_normal(shape=img.shape)
             return i + 1, img
 

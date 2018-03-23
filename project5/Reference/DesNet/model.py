@@ -54,7 +54,7 @@ class DesNet(object):
 
         def body(i, samples):
             noise = tf.random_normal(shape=tf.shape(samples), name='noise')
-            syn_res = self.descriptor(samples, to_sz, is_training=True, reuse=True)
+            syn_res = self.descriptor(samples, is_training=True, reuse=True)
             grad = tf.gradients(syn_res, samples, name='grad_des')[0]
             samples = samples - 0.5 * flags.delta^2 * (samples / flags.ref_sig^2 - grad)
             samples = samples + flags.delta * noise

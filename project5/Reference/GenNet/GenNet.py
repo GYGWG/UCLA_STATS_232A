@@ -71,7 +71,7 @@ class GenNet(object):
             return tf.add(i, 1), z
 
         i = tf.constant(0)
-        i, z = tf.while_loop(cond, body, [i, z_arg])
+        i, z = tf.while_loop(cond, body, [i, z])
         return z
 
     def build_model(self):
@@ -85,7 +85,7 @@ class GenNet(object):
         self.g_vars = [var for var in t_vars if 'gen' in var.name]
 
         self.infer_op = self.langevin_dynamics(self.z)
-        self.train_op = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1).minimize(gen_loss, var_list=self.g_vars)
+        self.train_op = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1).minimize(self.gen_loss, var_list=self.g_vars)
 
     def train(self):
         # Prepare training data
