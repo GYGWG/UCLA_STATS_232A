@@ -15,7 +15,7 @@ def main():
     # training hyper-parameters, no need to change
     parser.add_argument('--num_epochs', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=11)
-    parser.add_argument('--g_lr', type=float, default=0.0005)  # learning rate
+    parser.add_argument('--g_lr', type=float, default=0.0001)  # learning rate
     parser.add_argument('--beta1', type=float, default=0.5)  # momentum1 in Adam
     parser.add_argument('--sigma', type=float, default=0.3)
 

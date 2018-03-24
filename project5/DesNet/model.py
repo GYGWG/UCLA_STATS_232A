@@ -45,7 +45,8 @@ class DesNet(object):
             # conv1 - bn - relu - conv2 - bn - relu -fc
             ####################################################
             net = lrelu(bn(conv2d(inputs, 32, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
-            net = lrelu(bn(conv2d(net, 64, 2, 2, 1, 1, name='d_conv2'), train=is_training, name='d_bn2'))
+            net = lrelu(bn(conv2d(net, 64, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
+            net = lrelu(bn(conv2d(net, 128, 2, 2, 1, 1, name='d_conv3'), train=is_training, name='d_bn3'))
             net = tf.reshape(net, [self.batch_size, -1])
             return linear(net, 1, 'd_fc3')
 
@@ -59,8 +60,11 @@ class DesNet(object):
         ####################################################
         def body(i, img):
             # E = 0.5 / flags.ref_sig**2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
-            E = 0.5 / flags.ref_sig ** 2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
-            img = img - 0.5 * flags.delta**2 * tf.gradients(E, img)[0] + tf.random_normal(shape=img.shape)
+            # img = img - 0.5 * flags.delta**2 * tf.gradients(E, img)[0] + tf.random_normal(shape=img.shape)
+            BM = tf.random_normal(shape=tf.shape(img), name='noise')
+            y_hat = self.descriptor(img, is_training=True, reuse=True)
+            grad = tf.gradients(y_hat, img, name='grad_des')[0]
+            img = img - 0.5 * flags.delta ** 2 * (img / flags.ref_sig ** 2 - grad) + flags.delta * BM
             return i + 1, img
 
         def cond(i, img):
@@ -73,17 +77,23 @@ class DesNet(object):
         # Define the learning process. Record the loss.
         ####################################################
         # Real Data
-        img_scoreFun = self.descriptor(self.img, reuse=False, is_training=True)
-        img = tf.reshape(self.img, (self.batch_size, -1))
-        norm = tf.norm(img, axis=1)
-        E_img = 0.5 / flags.ref_sig**2 * tf.square(tf.reshape(norm, (-1, 1))) - img_scoreFun
+        img_scoreFun = self.descriptor(self.img)
+        # img = tf.reshape(self.img, (self.batch_size, -1))
+        # norm = tf.norm(img, axis=1)
+        # E_img = 0.5 / flags.ref_sig**2 * tf.square(tf.reshape(norm, (-1, 1))) - img_scoreFun
 
         # Dream data
-        E_synImg = self.dreamingData(self.meanImg, flags)
+        # E_synImg = self.dreamingData(self.meanImg, flags)
+        synImg = self.Langevin_sampling(self.meanImg, flags)
+        synImg_scoreFun = self.descriptor(synImg, reuse=True, is_training=True)
 
         # loss
-        self.loss = tf.reduce_mean(E_img) - tf.reduce_mean(E_synImg)
+        # self.loss = tf.reduce_mean(E_img) - tf.reduce_mean(E_synImg)
+        self.loss = tf.subtract(tf.reduce_mean(synImg_scoreFun), tf.reduce_mean(img_scoreFun))
         self.loss_sum = tf.summary.scalar("loss", self.loss)
+
+        t_vars = tf.trainable_variables()
+        self.d_vars = [var for var in t_vars if 'd_' in var.name]
 
         # test
         self.synImg = self.Langevin_sampling(self.meanImg, flags)
@@ -106,7 +116,7 @@ class DesNet(object):
         learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 100, 0.96, staircase=True)
 
         # optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
-        optim = tf.train.AdamOptimizer(learning_rate, beta1=flags.beta1).minimize(self.loss, global_step=global_steps)
+        optim = tf.train.AdamOptimizer(learning_rate, beta1=flags.beta1).minimize(self.loss, global_step=global_steps, var_list=self.d_vars)
 
         self.sess.run(tf.global_variables_initializer())
         self.sess.run(tf.local_variables_initializer())

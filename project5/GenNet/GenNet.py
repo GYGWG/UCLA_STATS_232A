@@ -56,14 +56,17 @@ class GenNet(object):
         ####################################################
         with tf.variable_scope("generator", reuse=reuse):
             net = tf.nn.relu(bn(linear(inputs, 1024, scope='g_fc1'), train=is_training, name='g_bn1'))
-            net = tf.nn.relu(bn(linear(net, 128 * 8 * 8, scope='g_fc2'), train=is_training, name='g_bn2'))
-            net = tf.reshape(net, [self.batch_size, 8, 8, 128])
+            net = tf.nn.relu(bn(linear(net, 256 * 4 * 4, scope='g_fc2'), train=is_training, name='g_bn2'))
+            net = tf.reshape(net, [self.batch_size, 4, 4, 256])
             net = tf.nn.relu(
-                bn(deconv2d(net, [self.batch_size, 16, 16, 64], 4, 4, 2, 2, name='g_dc3'), train=is_training,
+                bn(deconv2d(net, [self.batch_size, 8, 8, 256], 4, 4, 2, 2, name='g_dc3'), train=is_training,
                    name='g_bn3'))
             net = tf.nn.relu(
-                bn(deconv2d(net, [self.batch_size, 32, 32, 32], 4, 4, 2, 2, name='g_dc3-2'), train=is_training,
+                bn(deconv2d(net, [self.batch_size, 16, 16, 128], 4, 4, 2, 2, name='g_dc3-2'), train=is_training,
                    name='g_bn3-2'))
+            net = tf.nn.relu(
+                bn(deconv2d(net, [self.batch_size, 32, 32, 64], 4, 4, 2, 2, name='g_dc3-3'), train=is_training,
+                   name='g_bn3-3'))
 
             out = tf.nn.sigmoid(deconv2d(net, [self.batch_size, self.image_size, self.image_size, 3], 4, 4, 2, 2,
                                          name='g_dc4'))
