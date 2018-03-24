@@ -71,7 +71,7 @@ class GenNet(object):
             return tf.add(i, 1), z
 
         i = tf.constant(0)
-        i, z = tf.while_loop(cond, body, [i, z_arg])
+        i, z = tf.while_loop(cond, body, [i, z])
         return z
 
     def build_model(self):
