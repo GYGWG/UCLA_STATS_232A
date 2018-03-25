@@ -44,9 +44,9 @@ class DesNet(object):
             # fc: channel output 1
             # conv1 - bn - relu - conv2 - bn - relu -fc
             ####################################################
-            net = lrelu(bn(conv2d(inputs, 32, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
-            net = lrelu(bn(conv2d(net, 64, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
-            net = lrelu(bn(conv2d(net, 128, 2, 2, 1, 1, name='d_conv3'), train=is_training, name='d_bn3'))
+            net = lrelu(bn(conv2d(inputs, 64, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
+            net = lrelu(bn(conv2d(net, 128, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
+            # net = lrelu(bn(conv2d(net, 256, 2, 2, 1, 1, name='d_conv3'), train=is_training, name='d_bn3'))
             net = tf.reshape(net, [self.batch_size, -1])
             return linear(net, 1, 'd_fc3')
 
@@ -106,8 +106,7 @@ class DesNet(object):
         train_data = DataSet(self.data_path, image_size=flags.image_size)
         train_data = train_data.to_range(0, 255)
         # data_mean = np.mean(train_data, axis=(1,2,3),keepdims=True)
-        data_mean = np.mean(train_data, axis=(1, 2), keepdims=True)
-
+        data_mean = np.mean(train_data, axis=(1, 2), keepdims=True, dtype=np.int16)
         train_meanData = np.ones_like(train_data) * data_mean
 
         # Exp-decay learning rate

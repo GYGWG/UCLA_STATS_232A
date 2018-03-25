@@ -73,8 +73,7 @@ class DesNet(object):
         self.synthesized_images = tf.placeholder(tf.float32, shape=[None, flags.image_size, flags.image_size, 3])
         self.m_original = self.descriptor(self.original_images)
         self.m_synthesized = self.descriptor(self.synthesized_images, reuse=True)
-        self.train_loss = tf.subtract(tf.reduce_mean(
-                self.m_synthesized), tf.reduce_mean(self.m_original))
+        self.train_loss = tf.subtract(tf.reduce_mean(self.m_synthesized), tf.reduce_mean(self.m_original))
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'des' in var.name]
