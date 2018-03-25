@@ -44,14 +44,17 @@ class DesNet(object):
             # fc: channel output 1
             # conv1 - bn - relu - conv2 - bn - relu -fc
             ####################################################
-            net = lrelu(bn(conv2d(inputs, 32, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
-            net = lrelu(bn(conv2d(net, 64, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
-            net = lrelu(bn(conv2d(net, 128, 2, 2, 1, 1, name='d_conv3'), train=is_training, name='d_bn3'))
+            # net = lrelu(bn(conv2d(inputs, 32, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
+            # net = lrelu(bn(conv2d(net, 64, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
+            # net = tf.reshape(net, [self.batch_size, -1])
+            # net = lrelu(bn(linear(net, 1024, scope='d_fc1'), train=is_training, name='d_bn3'))
+            net = lrelu(bn(conv2d(inputs, 64, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
+            net = lrelu(bn(conv2d(net, 128, 2, 2, 1, 1, name='d_conv2'), train=is_training, name='d_bn2'))
             net = tf.reshape(net, [self.batch_size, -1])
             return linear(net, 1, 'd_fc3')
 
 
-    def Langevin_sampling(self, samples, flags):
+    def Langevin_sampling(self, samples, flags, train=True, reuse=True):
         ####################################################
         # Define Langevin dynamics sampling operation.
         # To define multiple sampling steps, you may use
@@ -62,7 +65,7 @@ class DesNet(object):
             # E = 0.5 / flags.ref_sig**2 * tf.square(tf.norm(img)) - self.descriptor(img, is_training=True, reuse=True)
             # img = img - 0.5 * flags.delta**2 * tf.gradients(E, img)[0] + tf.random_normal(shape=img.shape)
             BM = tf.random_normal(shape=tf.shape(img), name='noise')
-            y_hat = self.descriptor(img, is_training=True, reuse=True)
+            y_hat = self.descriptor(img, is_training=train, reuse=reuse)
             grad = tf.gradients(y_hat, img, name='grad_des')[0]
             img = img - 0.5 * flags.delta ** 2 * (img / flags.ref_sig ** 2 - grad) + flags.delta * BM
             return i + 1, img
@@ -88,15 +91,16 @@ class DesNet(object):
         synImg_scoreFun = self.descriptor(synImg, reuse=True, is_training=True)
 
         # loss
-        # self.loss = tf.reduce_mean(E_img) - tf.reduce_mean(E_synImg)
         self.loss = tf.subtract(tf.reduce_mean(synImg_scoreFun), tf.reduce_mean(img_scoreFun))
+        # self.loss = tf.subtract(synImg_scoreFun, img_scoreFun)
+        # self.loss_mean = tf.reduce_mean(self.loss)
         self.loss_sum = tf.summary.scalar("loss", self.loss)
 
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
 
         # test
-        self.synImg = self.Langevin_sampling(self.meanImg, flags)
+        self.synImg = self.Langevin_sampling(self.meanImg, flags, train=False)
 
         self.saver = tf.train.Saver(max_to_keep=50)
 
@@ -112,11 +116,11 @@ class DesNet(object):
 
         # Exp-decay learning rate
         counter = 0
-        global_steps = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 100, 0.96, staircase=True)
+        # global_steps = tf.Variable(0, trainable=False)
+        # learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 50, 0.96, staircase=True)
+        # optim = tf.train.AdamOptimizer(learning_rate, beta1=flags.beta1).minimize(self.loss, global_step=global_steps, var_list=self.d_vars)
 
-        # optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
-        optim = tf.train.AdamOptimizer(learning_rate, beta1=flags.beta1).minimize(self.loss, global_step=global_steps, var_list=self.d_vars)
+        optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
 
         self.sess.run(tf.global_variables_initializer())
         self.sess.run(tf.local_variables_initializer())
@@ -150,7 +154,7 @@ class DesNet(object):
                     self.sess.run([optim, self.loss, self.loss_sum, self.synImg],
                                   feed_dict={self.img: train_data, self.meanImg: train_meanData})
 
-                save_images(synImg, './{}/train_{:04d}.png'.format(self.sample_dir, counter))
+                save_images(synImg, './{}/train_{:00d}.png'.format(self.sample_dir, counter))
                 self.writer.add_summary(loss_sum, counter)
                 self.save(counter)
 

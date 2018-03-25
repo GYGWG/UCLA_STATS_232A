@@ -58,3 +58,6 @@ def test(d):
 tt = tf.range(1,10)
 for i in xrange(3):
     print(sess.run(test(tt)))
+
+
+print(np.random.randn(6, 2))
