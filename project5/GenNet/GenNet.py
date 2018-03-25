@@ -127,7 +127,7 @@ class GenNet(object):
 
         # Training
         global_steps = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(self.g_lr, global_steps, 100, 0.96, staircase=True)
+        learning_rate = tf.train.exponential_decay(self.g_lr, global_steps, 50, 0.96, staircase=True)
         optim = tf.train.AdamOptimizer(learning_rate, beta1=self.beta1).minimize(self.loss, global_step=global_steps)
 
         # optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1).minimize(self.loss)
@@ -187,7 +187,8 @@ class GenNet(object):
         plt.show()
 
         # Q2
-        rand_sampled_z = np.random.randn(self.batch_size, self.z_dim)
+        rand_sampled_z = np.random.randn(self.batch_size, self.z_dim) * 2
+        print("the random sampled features:\n", rand_sampled_z)
         randImages = self.sess.run(self.genImage, feed_dict={self.obs: train_data, self.z: rand_sampled_z})
         save_images(randImages, './{}/rand_sample_{:04d}.png'.format(self.sample_dir, counter))
 
