@@ -120,7 +120,7 @@ class DesNet(object):
         # learning_rate = tf.train.exponential_decay(flags.learning_rate, global_steps, 50, 0.96, staircase=True)
         # optim = tf.train.AdamOptimizer(learning_rate, beta1=flags.beta1).minimize(self.loss, global_step=global_steps, var_list=self.d_vars)
 
-        optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss)
+        optim = tf.train.AdamOptimizer(flags.learning_rate, beta1=flags.beta1).minimize(self.loss, var_list=self.d_vars)
 
         self.sess.run(tf.global_variables_initializer())
         self.sess.run(tf.local_variables_initializer())

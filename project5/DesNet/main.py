@@ -11,7 +11,7 @@ flags.DEFINE_string('output_dir', 'egret', 'pattern of filename of input images 
 flags.DEFINE_integer('batch_size', 7, 'Batch size for training')
 flags.DEFINE_integer('epoch', 1000, 'Number of epoch for training')
 flags.DEFINE_integer('image_size', 64, 'image size of training images')
-flags.DEFINE_float('learning_rate', 0.1, 'Learning rate')
+flags.DEFINE_float('learning_rate', 0.01, 'Learning rate')
 flags.DEFINE_float('beta1', 0.5, 'Momentum')
 
 flags.DEFINE_integer('log_steps', 25, 'Update the log data every 50 global steps')
