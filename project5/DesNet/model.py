@@ -44,18 +44,15 @@ class DesNet(object):
             # fc: channel output 1
             # conv1 - bn - relu - conv2 - bn - relu -fc
             ####################################################
-<<<<<<< HEAD
-            net = lrelu(bn(conv2d(inputs, 64, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
-            net = lrelu(bn(conv2d(net, 128, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
+            # net = lrelu(bn(conv2d(inputs, 64, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
+            # net = lrelu(bn(conv2d(net, 128, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
             # net = lrelu(bn(conv2d(net, 256, 2, 2, 1, 1, name='d_conv3'), train=is_training, name='d_bn3'))
-=======
             # net = lrelu(bn(conv2d(inputs, 32, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
             # net = lrelu(bn(conv2d(net, 64, 4, 4, 2, 2, name='d_conv2'), train=is_training, name='d_bn2'))
             # net = tf.reshape(net, [self.batch_size, -1])
             # net = lrelu(bn(linear(net, 1024, scope='d_fc1'), train=is_training, name='d_bn3'))
             net = lrelu(bn(conv2d(inputs, 64, 4, 4, 2, 2, name='d_conv1'), train=is_training, name='d_bn1'))
             net = lrelu(bn(conv2d(net, 128, 2, 2, 1, 1, name='d_conv2'), train=is_training, name='d_bn2'))
->>>>>>> 08093cac591729f7eb7dd05702c77f7087e04fec
             net = tf.reshape(net, [self.batch_size, -1])
             return linear(net, 1, 'd_fc3')
 
