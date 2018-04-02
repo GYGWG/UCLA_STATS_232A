@@ -180,14 +180,14 @@ class FullyConnectedNet(object):
 
         if weight_scale:
             for i in range(self.num_layers):
-                self.params["W{}".format(i + 1)] = np.random.randn(*(dim[i:i+2])) * weight_scale
+                self.params["W{}".format(i + 1)] = np.random.normal(0, weight_scale, dim[i:i+2])
                 self.params["b{}".format(i + 1)] = np.zeros(dim[i+1])
                 if use_batchnorm and i < self.num_layers - 1:
                     self.params["gamma{}".format(i + 1)] = np.random.randn(dim[i + 1]) * 1e-3 + 1
                     self.params["beta{}".format(i + 1)] = np.zeros(dim[i + 1])
 
         else:
-            for i in range(self.num_layers+1):
+            for i in range(self.num_layers):
                 self.params["W{}".format(i + 1)] = np.random.randn(*(dim[i:i+2])) * np.sqrt(2/(dim[i]+dim[i+1]))
                 self.params["b{}".format(i + 1)] = np.zeros(dim[i+1])
                 if use_batchnorm and i < self.num_layers - 1:
@@ -287,14 +287,14 @@ class FullyConnectedNet(object):
                 # cache.append({'fc_cache': fc_cache, 'BN_cache': BN_cache, 'relu_cache': relu_cache})
 
                 yi, caches = fc_BN_relu_forward(yi, self.params["W{}".format(i + 1)], self.params["b{}".format(i + 1)],
-                                               self.params["gamma{}".format(i + 1)], self.params["beta{}".format(i + 1)]
-                                               , self.bn_params[i])
+                                                self.params["gamma{}".format(i + 1)], self.params["beta{}".format(i + 1)]
+                                                , self.bn_params[i])
                 cache.append(caches)
 
         else:
-            for i in range(self.num_layers - 1):
-                yi, cache = fc_relu_forward(yi, self.params["W{}".format(i + 1)], self.params["b{}".format(i + 1)])
-                cache.append({'fc_cache': cache[0], 'relu_cache': cache[1]})
+            for i in range(1, self.num_layers):
+                yi, caches = fc_relu_forward(yi, self.params["W{}".format(i)], self.params["b{}".format(i)])
+                cache.append({'fc_cache': caches[0], 'relu_cache': caches[1]})
 
         # Last layer
         scores, fc_cache = fc_forward(yi, self.params["W{}".format(self.num_layers)],
@@ -326,7 +326,7 @@ class FullyConnectedNet(object):
         ############################################################################
         loss, dLdz = softmax_loss(scores, y)
         loss += np.sum([np.linalg.norm(self.params["W{}".format(i+1)]) ** 2 for i in range(self.num_layers)]) \
-                                                                                                        * 0.5 * self.reg
+                * 0.5 * self.reg
         # Last layer
         dLdy, grads["W{}".format(self.num_layers)], grads["b{}".format(self.num_layers)]\
             = fc_backward(dLdz, cache[-1]['fc_cache'])
@@ -347,7 +347,7 @@ class FullyConnectedNet(object):
         else:
             for i in range(self.num_layers - 1, 0, -1):
                 dLdy, grads["W{}".format(i)], grads["b{}".format(i)] \
-                    = fc_relu_backward(dLdy, [cache[i-1]['fc_cache'], cache[i-1]['relu_cache']] )
+                    = fc_relu_backward(dLdy, [cache[i-1]['fc_cache'], cache[i-1]['relu_cache']])
                 grads["W{}".format(i)] += self.reg * self.params["W{}".format(i)]
 
         grads['dx'] = dLdy

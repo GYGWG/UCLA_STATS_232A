@@ -274,7 +274,7 @@ class Test(object):
         }
 
         weight_scale = 1e-1
-        learning_rate = 1e-4
+        learning_rate = 5e-4
         model = FullyConnectedNet([100, 100],
                                   weight_scale=weight_scale, dtype=np.float64)
 
@@ -697,7 +697,7 @@ class Test(object):
         weight_scale = 0
         learning_rate = 5e-4
         model = FullyConnectedNet([200, 200, 200, 200, 200], input_dim=3 * 32 * 32, reg=0.1,
-                weight_scale=weight_scale, dtype=np.float64)
+                weight_scale=weight_scale, dtype=np.float64, use_batchnorm=True)
 
         solver = Solver(model, data,
                 print_every=50, num_epochs=20, batch_size=256,
@@ -735,6 +735,8 @@ class Test(object):
 
 
         best_model = solver.model
+
+
         y_test_pred = np.argmax(best_model.loss(data['X_test']), axis=1)
         y_val_pred = np.argmax(best_model.loss(data['X_val']), axis=1)
         print('Validation set accuracy: ', (y_val_pred == data['y_val']).mean())
@@ -745,4 +747,4 @@ class Test(object):
 # Implement test
 #
 test = Test()
-test.finalTest()
+test.test9()
